@@ -1,0 +1,73 @@
+name: Terraform Infra + ArgoCD Sync
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      matrix:
+        environment: [development, staging, production]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: copper-poet-468323-t7
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Plan (${{ matrix.environment }})
+        run: terraform -chdir=terraform plan -var-file=environments/${{ matrix.environment }}/terraform.tfvars
+
+      - name: Terraform Apply (${{ matrix.environment }})
+        if: github.ref == 'refs/heads/main'
+        run: terraform -chdir=terraform apply -var-file=environments/${{ matrix.environment }}/terraform.tfvars -auto-approve
+
+      # -----------------------
+      # ArgoCD Sync Step
+      # -----------------------
+      - name: Install ArgoCD CLI
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/
+
+      - name: ArgoCD Login
+        if: github.ref == 'refs/heads/main'
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username admin \
+            --password ${{ secrets.ARGOCD_PASS }} \
+            --insecure
+
+      - name: ArgoCD Sync Apps
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Sync all apps (Terraform already defined them via argocd-app module)
+          argocd app sync --all
+

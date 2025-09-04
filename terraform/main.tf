@@ -1,47 +1,89 @@
-data "google_secret_manager_secret_version" "db_password" {
-  secret  = "${var.env}-db-password"
-  project = var.project_id
+terraform {
+  required_version = ">= 1.6.0"
+
+  backend "gcs" {
+    bucket = "srespace-tf-state"
+    prefix = "infra"
+  }
 }
 
-data "google_secret_manager_secret_version" "argocd_password" {
-  secret  = "${var.env}-argocd-password"
+provider "google" {
   project = var.project_id
+  region  = var.region
 }
 
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "kubernetes" {
+  config_path = "~/.kube/config"
+}
+
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+provider "kubectl" {
+  config_path = "~/.kube/config"
+}
+
+provider "local" {}
+
+# ------------------------------
+# GKE Cluster
+# ------------------------------
 module "gke" {
-  source       = "./modules/gke"
-  env          = var.env
-  region       = var.region
-  machine_type = var.machine_type
-  node_count   = var.node_count
+  source     = "./modules/gke"
+  project_id = var.project_id
+  region     = var.region
+  env        = var.env
 }
 
+# ------------------------------
+# Artifact Registry
+# ------------------------------
 module "artifact_registry" {
-  source = "./modules/artifact-registry"
-  env    = var.env
-  region = var.region
+  source     = "./modules/artifact-registry"
+  project_id = var.project_id
+  region     = var.region
+  env        = var.env
 }
 
+# ------------------------------
+# Cloud SQL
+# ------------------------------
 module "cloud_sql" {
-  source      = "./modules/cloud-sql"
-  env         = var.env
-  region      = var.region
-  db_tier     = var.db_tier
-  db_password = data.google_secret_manager_secret_version.db_password.secret_data
+  source     = "./modules/cloud-sql"
+  project_id = var.project_id
+  region     = var.region
+  env        = var.env
 }
 
+# ------------------------------
+# Argo CD (Helm)
+# ------------------------------
 module "argocd" {
-  source         = "./modules/argocd"
-  env            = var.env
-  admin_password = data.google_secret_manager_secret_version.argocd_password.secret_data
+  source     = "./modules/argocd"
+  project_id = var.project_id
+  region     = var.region
+  env        = var.env
 }
 
-# Argo CD Applications for each service repo
+# ------------------------------
+# Argo CD Applications (Backstage services)
+# ------------------------------
 module "argocd_apps" {
-  source                = "./modules/argocd-app"
-  for_each              = toset(var.service_repos)
-  app_name              = replace(basename(each.value), "_", "-")
+  source     = "./modules/argocd-app"
+  for_each   = toset(var.service_repos)
+
+  app_name              = each.key
   repo_url              = each.value
+  env                   = var.env
   argocd_namespace      = "argocd"
   destination_namespace = "default"
 }
+
