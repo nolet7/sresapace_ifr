@@ -27,15 +27,17 @@ output "cloud_sql_instance" {
 # ------------------------------
 output "argocd_namespace" {
   description = "Namespace where ArgoCD is deployed"
-  value       = module.argocd.argocd_namespace
+  value       = "argocd" # ✅ hardcoded to avoid cycle
 }
 
-# Fetch ArgoCD server Service
+# Fetch ArgoCD server Service (after Helm install)
 data "kubernetes_service" "argocd_server" {
   metadata {
     name      = "argocd-server"
-    namespace = module.argocd.argocd_namespace
+    namespace = "argocd"
   }
+
+  depends_on = [module.argocd] # ✅ wait for ArgoCD Helm release to exist
 }
 
 output "argocd_server_endpoint" {
@@ -57,3 +59,4 @@ output "argocd_applications" {
   description = "Rendered YAML manifests for ArgoCD Applications"
   value       = [for app in module.argocd_apps : app]
 }
+

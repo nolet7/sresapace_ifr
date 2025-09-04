@@ -15,6 +15,8 @@ module "gke" {
   project_id = var.project_id
   region     = var.region
   env        = var.env
+  node_disk_type    = var.node_disk_type
+  node_disk_size_gb = var.node_disk_size_gb
 }
 
 # ------------------------------
@@ -53,12 +55,16 @@ module "argocd" {
 # Argo CD Applications
 # ------------------------------
 module "argocd_apps" {
-  source     = "./modules/argocd-app"
-  for_each   = toset(keys(var.service_repos))
+  source   = "./modules/argocd-app"
+  for_each = toset(keys(var.service_repos))
 
   app_name              = each.key
   repo_url              = var.service_repos[each.key]
   env                   = var.env
   argocd_namespace      = "argocd"
   destination_namespace = "default"
+
+  # ✅ enforce dependency on ArgoCD Helm release
+  depends_on = [module.argocd]
 }
+

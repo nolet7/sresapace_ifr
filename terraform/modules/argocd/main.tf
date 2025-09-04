@@ -1,21 +1,23 @@
 variable "project_id" {}
 variable "region" {}
 variable "env" {}
+
 variable "argocd_password_secret" {
   description = "Secret Manager ID for the ArgoCD admin password"
 }
+
 variable "argocd_password" {
   description = "Initial ArgoCD password (used only if secret is missing)"
   default     = null
 }
 
-# Ensure secret exists
+# Ensure secret exists (replication is auto)
 resource "google_secret_manager_secret" "argocd_password" {
   project   = var.project_id
   secret_id = var.argocd_password_secret
 
   replication {
-    automatic = true
+    auto {}
   }
 }
 
@@ -33,6 +35,7 @@ data "google_secret_manager_secret_version" "argocd_password" {
   version = "latest"
 }
 
+# Deploy ArgoCD via Helm
 resource "helm_release" "argocd" {
   name       = "argocd"
   namespace  = "argocd"
@@ -53,7 +56,12 @@ EOT
   ]
 }
 
+# ------------------------------
+# Outputs
+# ------------------------------
+# Hardcode namespace here instead of referencing helm_release to avoid cycles
 output "argocd_namespace" {
-  value = helm_release.argocd.namespace
+  description = "Namespace where ArgoCD is deployed"
+  value       = "argocd"
 }
 

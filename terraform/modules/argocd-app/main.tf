@@ -23,6 +23,9 @@ variable "env" {
   description = "Deployment environment (development, staging, production)"
 }
 
+# ------------------------------
+# ArgoCD Application manifest (applies to cluster)
+# ------------------------------
 resource "kubectl_manifest" "argocd_app" {
   yaml_body = <<YAML
 apiVersion: argoproj.io/v1alpha1
@@ -48,6 +51,9 @@ spec:
 YAML
 }
 
+# ------------------------------
+# Local rendered YAML copy (for debugging / GitOps visibility)
+# ------------------------------
 resource "local_file" "argocd_app_yaml" {
   content = <<YAML
 apiVersion: argoproj.io/v1alpha1
@@ -74,3 +80,4 @@ YAML
 
   filename = "${path.root}/../argocd-apps/${var.env}-${var.app_name}-app.yaml"
 }
+
