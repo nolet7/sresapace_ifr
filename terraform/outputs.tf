@@ -1,15 +1,59 @@
-output "gke_cluster_endpoint" {
-  value = module.gke.endpoint
+# ------------------------------
+# GKE
+# ------------------------------
+output "gke_cluster_name" {
+  description = "Name of the GKE cluster"
+  value       = module.gke.gke_cluster_name
 }
 
-output "artifact_registry" {
-  value = module.artifact_registry.url
+# ------------------------------
+# Artifact Registry
+# ------------------------------
+output "artifact_registry_repo" {
+  description = "Artifact Registry repository ID"
+  value       = module.artifact_registry.artifact_registry_repo
 }
 
-output "cloud_sql_connection" {
-  value = module.cloud_sql.connection_name
+# ------------------------------
+# Cloud SQL
+# ------------------------------
+output "cloud_sql_instance" {
+  description = "Cloud SQL instance connection name"
+  value       = module.cloud_sql.cloud_sql_instance
 }
 
-output "argocd_server_url" {
-  value = module.argocd.server_url
+# ------------------------------
+# Argo CD
+# ------------------------------
+output "argocd_namespace" {
+  description = "Namespace where ArgoCD is deployed"
+  value       = module.argocd.argocd_namespace
+}
+
+# Fetch ArgoCD server Service
+data "kubernetes_service" "argocd_server" {
+  metadata {
+    name      = "argocd-server"
+    namespace = module.argocd.argocd_namespace
+  }
+}
+
+output "argocd_server_endpoint" {
+  description = "External ArgoCD server endpoint (LoadBalancer IP/hostname)"
+  value = (
+    length(lookup(data.kubernetes_service.argocd_server.status[0], "load_balancer", [])) > 0 ?
+    (lookup(data.kubernetes_service.argocd_server.status[0].load_balancer[0].ingress[0], "ip", "") != "" ?
+      data.kubernetes_service.argocd_server.status[0].load_balancer[0].ingress[0].ip :
+      data.kubernetes_service.argocd_server.status[0].load_balancer[0].ingress[0].hostname
+    ) :
+    "pending"
+  )
+}
+
+# ------------------------------
+# Argo CD Applications
+# ------------------------------
+output "argocd_applications" {
+  description = "Rendered YAML manifests for ArgoCD Applications"
+  value       = [for app in module.argocd_apps : app]
 }

@@ -7,6 +7,32 @@ terraform {
   }
 }
 
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "kubernetes" {
+  config_path = "~/.kube/config"
+}
+
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+  }
+}
+
+provider "kubectl" {
+  config_path = "~/.kube/config"
+}
+
+provider "local" {}
+
 # ------------------------------
 # GKE Cluster
 # ------------------------------
@@ -31,34 +57,33 @@ module "artifact_registry" {
 # Cloud SQL
 # ------------------------------
 module "cloud_sql" {
-  source             = "./modules/cloud-sql"
-  project_id         = var.project_id
-  region             = var.region
-  env                = var.env
-  db_password_secret = var.db_password_secret
+  source     = "./modules/cloud-sql"
+  project_id = var.project_id
+  region     = var.region
+  env        = var.env
 }
 
 # ------------------------------
 # Argo CD (Helm)
 # ------------------------------
 module "argocd" {
-  source                 = "./modules/argocd"
-  project_id             = var.project_id
-  region                 = var.region
-  env                    = var.env
-  argocd_password_secret = var.argocd_password_secret
+  source     = "./modules/argocd"
+  project_id = var.project_id
+  region     = var.region
+  env        = var.env
 }
 
 # ------------------------------
-# Argo CD Applications
+# Argo CD Applications (Backstage services)
 # ------------------------------
 module "argocd_apps" {
   source     = "./modules/argocd-app"
-  for_each   = toset(keys(var.service_repos))
+  for_each   = toset(var.service_repos)
 
   app_name              = each.key
-  repo_url              = var.service_repos[each.key]
+  repo_url              = each.value
   env                   = var.env
   argocd_namespace      = "argocd"
   destination_namespace = "default"
 }
+

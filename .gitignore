@@ -1,0 +1,13 @@
+# Terraform state
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Local creds
+terraform-sa.json
+
+# OS / editor files
+.DS_Store
+*.swp
+*.swo

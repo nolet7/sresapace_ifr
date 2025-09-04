@@ -15,10 +15,8 @@ resource "google_container_cluster" "primary" {
   }
 
   networking_mode = "VPC_NATIVE"
-
   ip_allocation_policy {}
 
-  # Enable Workload Identity
   workload_identity_config {
     identity_namespace = "${var.project_id}.svc.id.goog"
   }
@@ -41,4 +39,3 @@ resource "google_container_node_pool" "primary_nodes" {
 output "gke_cluster_name" {
   value = google_container_cluster.primary.name
 }
-<--- paste GKE module code here --->
